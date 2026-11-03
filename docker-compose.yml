@@ -1,0 +1,7 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: redistack-redis
+    ports:
+      - "6380:6379"
+    command: redis-server --appendonly yes
