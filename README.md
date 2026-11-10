@@ -32,12 +32,25 @@ To stop Redis later:
 docker compose down
 ```
 
-## Run the examples
+## Run the API and examples
 
 ```bash
-npx tsx src/cache-demo.ts
-npx tsx src/session-demo.ts
+npm run dev
+npm run demo:cache
+npm run demo:sessions
+npm run demo:rate-limit-naive
+npm run demo:rate-limit-fixed
 ```
+
+The local API runs on `http://127.0.0.1:3000`.
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `GET` | `/health` | Confirms that the API can communicate with Redis. |
+| `POST` | `/login` | Creates a TTL-based Redis session. |
+| `GET` | `/me` | Retrieves the authenticated session using `x-session-id`. |
+| `POST` | `/logout` | Deletes one session. |
+| `POST` | `/users/:userId/logout-all` | Revokes every active session for a user. |
 
 ## Learning progress
 
@@ -59,13 +72,14 @@ Completed:
 
 ### Stage 3: Session management
 
-In progress:
+Completed learning implementation:
 
 - `session:<sessionId>` stores one user's session details as a Redis hash.
 - Each session has an expiry time (TTL).
 - `user-sessions:<userId>` is a Redis Set containing every active session ID for one user.
 - A normal logout removes one session.
 - Revoke-all removes every session belonging to one user.
+- Fastify exposes login, profile, logout, and revoke-all endpoints for testing in RequestKit.
 
 Session data looks like this:
 
@@ -80,9 +94,19 @@ user-sessions:1
   <phone-session-id>
 ```
 
+### Stage 4: Rate limiting
+
+Completed learning implementation:
+
+- Per-IP and per-user limits protect the authenticated `/me` route.
+- Redis counters use `INCR` and a fixed time window.
+- A Lua script runs the increment and TTL setup atomically.
+- The API returns `429 Too Many Requests` with a retry-after value when a limit is exceeded.
+- A naïve implementation revealed a bug: resetting the TTL on every request created an unfair moving window.
+- The fix sets the TTL only on the first request in the window, so the timer counts down normally.
+
 ## Next steps
 
-1. Run and verify the session demo.
-2. Add automated tests for session creation, logout, expiry, and revoke-all.
-3. Build a small HTTP API with login, logout, and revoke-all endpoints.
-4. Begin Stage 4: rate limiting.
+1. Add automated tests for sessions and rate limits.
+2. Begin Stage 5: build a leaderboard with Redis sorted sets.
+3. Improve API validation and add real authentication before production work.

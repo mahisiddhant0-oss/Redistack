@@ -4,7 +4,15 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run typecheck",
+    "demo:cache": "tsx src/cache-demo.ts",
+    "demo:sessions": "tsx src/session-demo.ts",
+    "demo:rate-limit-naive": "tsx src/rate-limit-naive-demo.ts",
+    "demo:rate-limit-fixed": "tsx src/rate-limit-fixed-demo.ts"
   },
   "keywords": [],
   "author": "",
@@ -12,6 +20,7 @@
   "type": "commonjs",
   "dependencies": {
     "dotenv": "^18.0.9",
+    "fastify": "^5.12.8",
     "ioredis": "^6.0.0"
   },
   "devDependencies": {
