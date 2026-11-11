@@ -2,6 +2,7 @@ import Fastify, { type FastifyRequest } from "fastify";
 import { redis } from "./redis-client";
 import { SessionStore } from "./session-store";
 import { RateLimiter } from "./rate-limiter";
+import { LeaderboardStore } from "./leaderboard-store";
 
 type LoginBody = {
   userId: string;
@@ -18,6 +19,7 @@ const app = Fastify({ logger: true });
 const sessionStore = new SessionStore(redis);
 
 const rateLimiter = new RateLimiter(redis);
+const weeklyLeaderboard = new LeaderboardStore(redis, "weekly");
 
 const IP_REQUEST_LIMIT = 10;
 const USER_REQUEST_LIMIT = 3;
@@ -153,6 +155,113 @@ app.post<{ Params: RevokeAllParams }>(
     };
   }
 );
+
+  type ScoreBody = {
+    score: number;
+  };
+
+  type LeaderboardPlayerParams = {
+    playerId: string;
+  };
+
+  app.post<{
+    Params: LeaderboardPlayerParams;
+    Body: ScoreBody;
+  }>("/leaderboard/players/:playerId/score", async (request, reply) => {
+    const { score } = request.body;
+    const { playerId } = request.params;
+
+    if (!Number.isFinite(score)) {
+      return reply.code(400).send({
+        error: "score must be a valid number",
+      });
+    }
+
+    await weeklyLeaderboard.setScore(playerId, score);
+
+    const player = await weeklyLeaderboard.getPlayerRank(playerId);
+
+    return {
+      message: "Score saved",
+      leaderboard: "weekly",
+      player,
+    };
+  });
+
+    type TopPlayersQuery = {
+      limit?: string;
+    };
+    app.get<{
+    Params: LeaderboardPlayerParams;
+  }>("/leaderboard/players/:playerId/rank", async (request, reply) => {
+    const player = await weeklyLeaderboard.getPlayerRank(
+      request.params.playerId
+    );
+
+    if (player === null) {
+      return reply.code(404).send({
+        error: "Player is not on this leaderboard",
+      });
+    }
+
+    return {
+      leaderboard: "weekly",
+      player,
+    };
+});
+  app.get<{
+    Querystring: TopPlayersQuery;
+  }>("/leaderboard/top", async (request, reply) => {
+    const limit = Number(request.query.limit ?? 5);
+
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+      return reply.code(400).send({
+        error: "limit must be a whole number between 1 and 100",
+      });
+    }
+
+    const players = await weeklyLeaderboard.getTopPlayers(limit);
+
+    return {
+      leaderboard: "weekly",
+      players,
+    };
+});
+
+type NearbyPlayersQuery = {
+  radius?: string;
+};
+
+app.get<{
+  Params: LeaderboardPlayerParams;
+  Querystring: NearbyPlayersQuery;
+}>("/leaderboard/players/:playerId/nearby", async (request, reply) => {
+  const radius = Number(request.query.radius ?? 1);
+
+  if (!Number.isInteger(radius) || radius < 0 || radius > 10) {
+    return reply.code(400).send({
+      error: "radius must be a whole number between 0 and 10",
+    });
+  }
+
+  const players = await weeklyLeaderboard.getPlayersNear(
+    request.params.playerId,
+    radius
+  );
+
+  if (players.length === 0) {
+    return reply.code(404).send({
+      error: "Player is not on this leaderboard",
+    });
+  }
+
+  return {
+    leaderboard: "weekly",
+    centerPlayerId: request.params.playerId,
+    radius,
+    players,
+  };
+});
 
 async function start(): Promise<void> {
   try {

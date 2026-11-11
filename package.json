@@ -12,7 +12,8 @@
     "demo:cache": "tsx src/cache-demo.ts",
     "demo:sessions": "tsx src/session-demo.ts",
     "demo:rate-limit-naive": "tsx src/rate-limit-naive-demo.ts",
-    "demo:rate-limit-fixed": "tsx src/rate-limit-fixed-demo.ts"
+    "demo:rate-limit-fixed": "tsx src/rate-limit-fixed-demo.ts",
+    "demo:leaderboard": "tsx src/leaderboard-demo.ts"
   },
   "keywords": [],
   "author": "",

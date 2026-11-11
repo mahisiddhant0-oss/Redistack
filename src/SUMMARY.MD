@@ -98,9 +98,35 @@ The corrected script calls `EXPIRE` only when the counter equals one. The timer
 therefore counts down normally, and the API responds with `429 Too Many
 Requests` when the user or IP exceeds its limit.
 
+### Stage 5 — Leaderboards
+
+The project now uses a Redis sorted set called `leaderboard:weekly` for player
+scores and rankings. `LeaderboardStore` stores player IDs as members and their
+numeric scores as sorted-set scores.
+
+Current leaderboard features:
+
+- Create or update a player's score
+- Retrieve the highest-scoring players
+- Retrieve one player's score and rank
+- Retrieve players near a selected rank
+
+Fastify exposes these routes:
+
+```text
+POST /leaderboard/players/:playerId/score
+GET  /leaderboard/top?limit=5
+GET  /leaderboard/players/:playerId/rank
+GET  /leaderboard/players/:playerId/nearby?radius=1
+```
+
+The terminal demo and RequestKit checks verified that setting Riya's score to
+1100 immediately moved her to rank one. The nearby-player route correctly
+returned the players above and below Maya's rank.
+
 ## Current status
 
-Stages 1 through 4 are complete as learning implementations.
+Stages 1 through 5 are complete as learning implementations.
 
 The project still needs:
 
@@ -109,17 +135,17 @@ The project still needs:
 - Cleanup of stale session IDs after natural TTL expiry
 - Production-ready validation and authorization
 
-## Next work: Stage 5 — Leaderboards
+## Next work: Stage 6 — Real-time notifications
 
-Use Redis sorted sets to add player scores, retrieve global rankings, and find
-players near a chosen rank. Add tests for the existing session and rate-limit
-flows before treating the project as production-ready.
+Use Redis Pub/Sub and WebSockets to deliver live events to connected clients.
+Add tests for the existing cache, session, rate-limit, and leaderboard flows
+before treating the project as production-ready.
 
 ## Future roadmap
 
-### Stage 5 — Leaderboards
+### Stage 5 — Leaderboards (complete)
 
-Use Redis sorted sets for:
+Redis sorted sets now provide:
 
 - Player scores
 - Global rankings
@@ -154,7 +180,7 @@ Prepare the project for realistic use with:
 
 ## How to explain the project
 
-“Redistack is a TypeScript project where I learn Redis through practical backend patterns. I run Redis locally with Docker and connect it with ioredis. I built cache-aside reads with TTL-based expiry, multi-device sessions using Redis hashes and Sets, and a Fastify API to demonstrate those features. I also implemented per-IP and per-user rate limiting with atomic Lua scripts. During that work, I found that resetting a counter TTL on every request created an unfair moving window; I fixed it by setting expiry only on the first request in the window. Next, I will build leaderboards with Redis sorted sets and strengthen the project with automated tests.”
+“Redistack is a TypeScript project where I learn Redis through practical backend patterns. I run Redis locally with Docker and connect it with ioredis. I built cache-aside reads with TTL-based expiry, multi-device sessions using Redis hashes and Sets, and a Fastify API to demonstrate those features. I also implemented per-IP and per-user rate limiting with atomic Lua scripts. During that work, I found that resetting a counter TTL on every request created an unfair moving window; I fixed it by setting expiry only on the first request in the window. I then built a sorted-set leaderboard with score updates, top-player lookups, individual ranks, and nearby-player queries. Next, I will build real-time notifications with Redis Pub/Sub and WebSockets, then strengthen the project with automated tests.”
 
 ## Definition of success
 

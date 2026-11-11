@@ -40,6 +40,7 @@ npm run demo:cache
 npm run demo:sessions
 npm run demo:rate-limit-naive
 npm run demo:rate-limit-fixed
+npm run demo:leaderboard
 ```
 
 The local API runs on `http://127.0.0.1:3000`.
@@ -51,6 +52,10 @@ The local API runs on `http://127.0.0.1:3000`.
 | `GET` | `/me` | Retrieves the authenticated session using `x-session-id`. |
 | `POST` | `/logout` | Deletes one session. |
 | `POST` | `/users/:userId/logout-all` | Revokes every active session for a user. |
+| `POST` | `/leaderboard/players/:playerId/score` | Creates or updates a player's score. |
+| `GET` | `/leaderboard/top?limit=5` | Returns the highest-scoring players. |
+| `GET` | `/leaderboard/players/:playerId/rank` | Returns one player's score and rank. |
+| `GET` | `/leaderboard/players/:playerId/nearby?radius=1` | Returns players near a chosen player's rank. |
 
 ## Learning progress
 
@@ -105,8 +110,22 @@ Completed learning implementation:
 - A naïve implementation revealed a bug: resetting the TTL on every request created an unfair moving window.
 - The fix sets the TTL only on the first request in the window, so the timer counts down normally.
 
+### Stage 5: Leaderboards
+
+Completed learning implementation:
+
+- `leaderboard:weekly` is a Redis sorted set where each player ID is a member
+  and their score determines the order.
+- Scores can be created or updated through the Fastify API.
+- The project retrieves top players, an individual player's rank, and players
+  near a chosen rank.
+- Redis commands such as `ZADD`, `ZREVRANGE`, `ZREVRANK`, and `ZSCORE` do the
+  ranking work without sorting data in TypeScript.
+- The leaderboard demo and RequestKit checks verify that a score update moves a
+  player to the correct rank immediately.
+
 ## Next steps
 
-1. Add automated tests for sessions and rate limits.
-2. Begin Stage 5: build a leaderboard with Redis sorted sets.
-3. Improve API validation and add real authentication before production work.
+1. Begin Stage 6: use Redis Pub/Sub and WebSockets for real-time notifications.
+2. Add automated tests and improve validation before production work.
+3. Build the final Redis visualizer UI after the backend stages are complete.
