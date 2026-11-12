@@ -11,6 +11,7 @@ The project uses:
 - Redis
 - ioredis
 - Docker Compose
+- Fastify and `@fastify/websocket`
 
 ## What has been completed
 
@@ -124,9 +125,37 @@ The terminal demo and RequestKit checks verified that setting Riya's score to
 1100 immediately moved her to rank one. The nearby-player route correctly
 returned the players above and below Maya's rank.
 
+### Stage 6 — Real-time notifications
+
+The project now sends live leaderboard updates with Redis Pub/Sub and
+WebSockets.
+
+`NotificationService` creates a dedicated Redis subscriber connection and
+listens on the `notifications:events` channel. It also publishes structured
+notifications with a UUID, a timestamp, a title, a message, and event data.
+
+When the score-update API route changes a leaderboard entry, it publishes a
+`leaderboard.score-updated` event. The server logs the event and forwards it
+to every connected WebSocket client through:
+
+```text
+GET /ws/notifications
+```
+
+The verification flow was:
+
+1. Open a WebSocket client.
+2. Receive the initial `notifications.connected` message.
+3. Submit Riya's score update through RequestKit.
+4. Receive the live `leaderboard.score-updated` event, including her new
+   score and rank.
+
+This separates two jobs: Redis Pub/Sub distributes an event inside the
+backend, while WebSockets push that event to a live client without polling.
+
 ## Current status
 
-Stages 1 through 5 are complete as learning implementations.
+Stages 1 through 6 are complete as learning implementations.
 
 The project still needs:
 
@@ -134,12 +163,14 @@ The project still needs:
 - Secure cookie or token handling
 - Cleanup of stale session IDs after natural TTL expiry
 - Production-ready validation and authorization
+- Persistent notification history or replay for clients that were offline
 
-## Next work: Stage 6 — Real-time notifications
+## Next work: Stage 7 — Background jobs
 
-Use Redis Pub/Sub and WebSockets to deliver live events to connected clients.
-Add tests for the existing cache, session, rate-limit, and leaderboard flows
-before treating the project as production-ready.
+Build a job workflow with queues, retries, delayed work, idempotency, and
+failed-job handling. Add tests for the existing cache, session, rate-limit,
+leaderboard, and notification flows before treating the project as
+production-ready.
 
 ## Future roadmap
 
@@ -152,9 +183,11 @@ Redis sorted sets now provide:
 - Rank lookup
 - Players near a specific rank
 
-### Stage 6 — Real-time notifications
+### Stage 6 — Real-time notifications (complete)
 
-Use Redis Pub/Sub and WebSockets to send live events to connected users.
+Redis Pub/Sub distributes leaderboard events inside the backend, and the
+`/ws/notifications` WebSocket endpoint sends them immediately to connected
+clients.
 
 ### Stage 7 — Background jobs
 
@@ -180,7 +213,7 @@ Prepare the project for realistic use with:
 
 ## How to explain the project
 
-“Redistack is a TypeScript project where I learn Redis through practical backend patterns. I run Redis locally with Docker and connect it with ioredis. I built cache-aside reads with TTL-based expiry, multi-device sessions using Redis hashes and Sets, and a Fastify API to demonstrate those features. I also implemented per-IP and per-user rate limiting with atomic Lua scripts. During that work, I found that resetting a counter TTL on every request created an unfair moving window; I fixed it by setting expiry only on the first request in the window. I then built a sorted-set leaderboard with score updates, top-player lookups, individual ranks, and nearby-player queries. Next, I will build real-time notifications with Redis Pub/Sub and WebSockets, then strengthen the project with automated tests.”
+“Redistack is a TypeScript project where I learn Redis through practical backend patterns. I run Redis locally with Docker and connect it with ioredis. I built cache-aside reads with TTL-based expiry, multi-device sessions using Redis hashes and Sets, and a Fastify API to demonstrate those features. I also implemented per-IP and per-user rate limiting with atomic Lua scripts. During that work, I found that resetting a counter TTL on every request created an unfair moving window; I fixed it by setting expiry only on the first request in the window. I then built a sorted-set leaderboard with score updates, top-player lookups, individual ranks, and nearby-player queries. Most recently, I used Redis Pub/Sub and WebSockets so a score update becomes a live client notification without polling. Next, I will build reliable background jobs and strengthen everything with tests.”
 
 ## Definition of success
 

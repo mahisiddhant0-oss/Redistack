@@ -2,7 +2,9 @@ import Fastify, { type FastifyRequest } from "fastify";
 import { redis } from "./redis-client";
 import { SessionStore } from "./session-store";
 import { RateLimiter } from "./rate-limiter";
+import { NotificationService } from "./notification-service";
 import { LeaderboardStore } from "./leaderboard-store";
+import websocket from "@fastify/websocket";
 
 type LoginBody = {
   userId: string;
@@ -20,6 +22,45 @@ const sessionStore = new SessionStore(redis);
 
 const rateLimiter = new RateLimiter(redis);
 const weeklyLeaderboard = new LeaderboardStore(redis, "weekly");
+
+const notificationService = new NotificationService(redis);
+
+notificationService.onNotification((notification) => {
+  app.log.info({ notification }, "Live notification received");
+});
+
+app.addHook("onClose", async () => {
+  await notificationService.stop();
+});
+
+function registerNotificationWebSocketRoute(): void {
+  app.get("/ws/notifications", { websocket: true }, (socket) => {
+    app.log.info("WebSocket client connected");
+
+    const unsubscribe = notificationService.onNotification((notification) => {
+      if (socket.readyState === socket.OPEN) {
+        socket.send(JSON.stringify(notification));
+      }
+    });
+
+    socket.send(
+      JSON.stringify({
+        type: "notifications.connected",
+        message: "You are connected to live Redis notifications.",
+        connectedAt: new Date().toISOString(),
+      })
+    );
+
+    socket.on("close", () => {
+      unsubscribe();
+      app.log.info("WebSocket client disconnected");
+    });
+
+    socket.on("error", (error) => {
+      app.log.warn({ error }, "WebSocket client error");
+    });
+  });
+}
 
 const IP_REQUEST_LIMIT = 10;
 const USER_REQUEST_LIMIT = 3;
@@ -181,10 +222,27 @@ app.post<{ Params: RevokeAllParams }>(
 
     const player = await weeklyLeaderboard.getPlayerRank(playerId);
 
+          if (player === null) {
+        return reply.code(500).send({
+          error: "Score was saved but the player rank could not be found",
+        });
+      }
+
+      const notification = await notificationService.publish({
+        type: "leaderboard.score-updated",
+        title: "Leaderboard updated",
+        message: `${player.playerId} reached rank ${player.rank} with ${player.score} points.`,
+        data: {
+          playerId: player.playerId,
+          score: player.score,
+          rank: player.rank,
+        },
+      });
     return {
       message: "Score saved",
       leaderboard: "weekly",
       player,
+      notification
     };
   });
 
@@ -265,6 +323,10 @@ app.get<{
 
 async function start(): Promise<void> {
   try {
+    await app.register(websocket);
+    registerNotificationWebSocketRoute();
+
+    await notificationService.start();
     const port = Number(process.env.PORT ?? 3000);
     await app.listen({ port, host: "0.0.0.0" });
   } catch (error) {
