@@ -13,7 +13,9 @@
     "demo:rate-limit-naive": "tsx src/rate-limit-naive-demo.ts",
     "demo:rate-limit-fixed": "tsx src/rate-limit-fixed-demo.ts",
     "demo:leaderboard": "tsx src/leaderboard-demo.ts",
-    "demo:notifications": "tsx src/notification-demo.ts"
+    "demo:notifications": "tsx src/notification-demo.ts",
+    "demo:jobs": "tsx src/job-queue-demo.ts",
+    "demo:job-retries":"tsx src/job-retry-demo.ts"
   },
   "keywords": [],
   "author": "",
